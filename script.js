@@ -151,6 +151,7 @@ function activarClimax() {
 
     // Audio
     if(cancionFinal) {
+        cancionFinal.volume = 0.15;
         cancionFinal.play().catch(e => console.log("Audio bloqueado", e));
     }
     
