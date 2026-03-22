@@ -1,106 +1,132 @@
-// --- 1. CONFIGURACIÓN BÁSICA DEL MUNDO 3D ---
+// --- 1. CONFIGURACIÓN BÁSICA ---
 const container = document.getElementById('canvas-container');
 const cancionFinal = document.getElementById('cancionFinal');
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x020205, 0.03); // Niebla para profundidad
+scene.fog = new THREE.FogExp2(0x020205, 0.01); // Niebla más suave para ver a lo lejos
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 18); // Posición inicial de la cámara
+// Ajustamos la cámara inicial un poco más abajo para que vea el modelo en -20
+camera.position.set(0, -10, 30); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 container.appendChild(renderer.domElement);
 
-// Controles para girar la cámara (OrbitControls)
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; 
 controls.dampingFactor = 0.05;
-controls.autoRotate = true; // El mundo gira solo
+controls.autoRotate = true; 
 controls.autoRotateSpeed = 0.4;
-controls.maxDistance = 35;
-controls.minDistance = 6;
+// El centro de rotación debe estar donde está tu girasol (-20)
+controls.target.set(0, -20, 0); 
 
-// --- 2. ILUMINACIÓN ---
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Luz tenue general
+// --- 2. ILUMINACIÓN (REUBICADA) ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Más luz ambiental
 scene.add(ambientLight);
 
-// Luz cálida saliendo del centro de la flor
-const flowerLight = new THREE.PointLight(0xFFD700, 2.5, 60); 
+// Luz frontal: La ponemos a la misma altura del girasol (-20) y un poco al frente (Z=10)
+const flowerLight = new THREE.PointLight(0xFFD700, 1.5, 80); 
+flowerLight.position.set(0, -15, 40); 
 scene.add(flowerLight);
 
-// --- 3. CARGANDO EL MODELO 3D REAL (GLTF/GLB) ---
-const loader = new THREE.GLTFLoader();
-let sunflowerGroup = new THREE.Group(); // Mantenemos el grupo para la interactividad
+// --- 3. CARGANDO TU MODELO (Tus dimensiones aplicadas) ---
+const sunflowerGroup = new THREE.Group();
 scene.add(sunflowerGroup);
 
-// Aquí ponemos el nombre de tu archivo descargado
+let materialesGirasol = [];
+const loader = new THREE.GLTFLoader();
+
 loader.load(
     'sunflower.glb', 
     function (gltf) {
         const modeloReal = gltf.scene;
         
-        // Dependiendo de cómo lo hizo el artista, quizás debas ajustar el tamaño
-        modeloReal.scale.set(1.5, 1.5, 1.5); 
+        // TUS DIMENSIONES:
+        modeloReal.scale.set(0.9, 0.9, 0.9); 
+        modeloReal.rotation.y = 1.5; 
+        modeloReal.position.set(0, -45, 0); 
         
-        // Y centrarlo si viene movido
-        modeloReal.position.set(0, -2, 0); 
-        
-        // Lo añadimos a nuestro grupo para que el detector de clics siga funcionando
+        modeloReal.traverse((child) => {
+            if (child.isMesh) {
+                materialesGirasol.push(child.material);
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
         sunflowerGroup.add(modeloReal);
+        console.log("Girasol ubicado en -20 y listo");
     },
-    undefined, // Función para mostrar barra de carga (la omitimos por simplicidad)
+    undefined, 
     function (error) {
-        console.error('Hubo un error cargando el modelo 3D:', error);
+        console.error('Error:', error);
     }
 );
 
-// --- 4. PARTÍCULAS (Polen brillante flotando) ---
+// --- 4. PARTÍCULAS (Polen circular y brillante) ---
+
+// Función mágica para crear una textura de círculo difuminado sin usar archivos externos
+function crearTexturaPolen() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext('2d');
+
+    // Dibujamos un degradado radial (del centro hacia afuera)
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    // Blanco puro en el centro
+    gradient.addColorStop(0.2, 'rgba(255, 222, 89, 0.8)'); // Amarillo brillante
+    gradient.addColorStop(0.5, 'rgba(255, 222, 89, 0.2)'); // Amarillo tenue
+    gradient.addColorStop(1, 'rgba(255, 222, 89, 0)');     // Transparente en los bordes
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+}
+
 const particlesGeometry = new THREE.BufferGeometry();
-const particlesCount = 1200; // Más polen
+const particlesCount = 2000; // ¡Subimos un poco la cantidad para que se vea más lleno!
 const posArray = new Float32Array(particlesCount * 3);
 
 for(let i = 0; i < particlesCount * 3; i++) {
-    posArray[i] = (Math.random() - 0.5) * 45; // Esparcir por área de 45
+    // Esparcimos el polen en un área grande alrededor del girasol
+    posArray[i*3] = (Math.random() - 0.5) * 80; 
+    posArray[i*3+1] = (Math.random() - 0.5) * 80 - 10; 
+    posArray[i*3+2] = (Math.random() - 0.5) * 80; 
 }
 particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 
 const particlesMaterial = new THREE.PointsMaterial({
-    size: 0.1,
-    color: 0xFFDE59,
+    size: 0.4, // Ahora que son círculos suaves, pueden ser un pelín más grandes
+    map: crearTexturaPolen(), // Aplicamos la textura circular que creamos arriba
     transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending // Para mayor brillo
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending, // Esto hace que "brillen" cuando se amontonan
+    depthWrite: false // CRUCIAL: Esto evita que se vean bordes negros entre partículas
 });
 
 const particleMesh = new THREE.Points(particlesGeometry, particlesMaterial);
 scene.add(particleMesh);
 
-// --- 5. INTERACTIVIDAD (El Clímax y Audio) ---
+// --- 5. INTERACTIVIDAD ---
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let isCinematicMode = false;
 
-// Manejador de clics/toques
-window.addEventListener('click', (event) => {
-    activarSiProcede(event);
-});
-
-window.addEventListener('touchstart', (event) => {
-    activarSiProcede(event.touches[0]);
-});
+window.addEventListener('click', (event) => activarSiProcede(event));
+window.addEventListener('touchstart', (event) => activarSiProcede(event.touches[0]));
 
 function activarSiProcede(interactionEvent) {
     if (isCinematicMode) return; 
 
-    // Calcular posición del mouse
     mouse.x = (interactionEvent.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(interactionEvent.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-
-    // Detectar si tocamos el girasol detallado
-    const intersects = raycaster.intersectObjects(sunflowerGroup.children);
+    const intersects = raycaster.intersectObjects(sunflowerGroup.children, true);
 
     if (intersects.length > 0) {
         activarClimax();
@@ -111,58 +137,57 @@ function activarClimax() {
     isCinematicMode = true;
     
     // Ocultar instrucciones
-    document.getElementById('instrucciones').style.opacity = 0;
-    
-    // Desactivar giro automático y acercar cámara cinemáticamente
-    controls.autoRotate = false;
-    
-    // Animar la luz y el material dramáticamente
-    flowerLight.intensity = 6;
-    petalMaterial.emissiveIntensity = 2.5;
-    petalMaterial.color.set(0xFFDE59); // Amarillo más pálido/caliente
+    const inst = document.getElementById('instrucciones');
+    if(inst) inst.style.opacity = 0;
+    document.getElementById('instrucciones').style.display = 'none';
 
-    // --- REPRODUCIR MÚSICA DE FONDO (flores-amarillas.mp3) ---
-    cancionFinal.play().catch(error => {
-        // En algunos navegadores, el audio automático está bloqueado
-        console.warn("No se pudo reproducir el audio automáticamente, requiere interacción del usuario.", error);
+    controls.autoRotate = false;
+    flowerLight.intensity = 2; // Explosión de luz
+
+    // Brillo en materiales
+    materialesGirasol.forEach(mat => {
+        if (mat.emissive) mat.emissive.setHex(0x664400); 
     });
+
+    // Audio
+    if(cancionFinal) {
+        cancionFinal.play().catch(e => console.log("Audio bloqueado", e));
+    }
     
-    // Mostrar el mensaje final detallado después de 1 segundo
+    // MOSTRAR MENSAJE: Forzamos el cambio de clase
     setTimeout(() => {
-        document.getElementById('mensaje-final').classList.remove('oculto');
-        document.getElementById('mensaje-final').classList.add('mostrar');
+        const msg = document.getElementById('mensaje-final');
+        if(msg) {
+            msg.classList.remove('oculto');
+            msg.classList.add('mostrar');
+            console.log("Mensaje mostrado");
+        }
     }, 1000);
 }
 
-// --- 6. ANIMACIÓN CONSTANTE Y RESPONSIVE ---
+// --- 6. ANIMACIÓN ---
 const clock = new THREE.Clock();
 
 function animate() {
     requestAnimationFrame(animate);
-    
     const elapsedTime = clock.getElapsedTime();
 
-    // Rotar partículas lentamente
-    particleMesh.rotation.y = elapsedTime * 0.04;
-    particleMesh.rotation.x = elapsedTime * 0.01;
+    particleMesh.rotation.y = elapsedTime * 0.03;
 
-    // Movimiento de respiración suave en el girasol detallado
-    sunflowerGroup.position.y = Math.sin(elapsedTime) * 0.4;
-    sunflowerGroup.rotation.y = Math.cos(elapsedTime * 0.2) * 0.05; // Ligero ladeo
+    // Levitación suave relativa a su posición -20
+    sunflowerGroup.position.y = Math.sin(elapsedTime) * 0.5;
 
-    // Si estamos en el clímax, la cámara se acerca cinemáticamente
     if (isCinematicMode) {
-        camera.position.lerp(new THREE.Vector3(0, 3, 10), 0.015);
-        controls.target.lerp(new THREE.Vector3(0, 1, 0), 0.015);
+        // ZOOM CORREGIDO: Bajamos la cámara a donde está el modelo (-18 aprox)
+        camera.position.lerp(new THREE.Vector3(0, -15, 20), 0.02);
+        controls.target.lerp(new THREE.Vector3(0, -20, 0), 0.02);
     }
 
     controls.update();
     renderer.render(scene, camera);
 }
-
 animate();
 
-// Ajustar si se redimensiona la ventana
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
