@@ -1,0 +1,88 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    overflow: hidden; /* Evita que aparezcan barras de scroll */
+    background-color: #020205; /* Fondo oscuro espacial */
+    font-family: 'Montserrat', sans-serif;
+}
+
+#canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1; /* El 3D va al fondo */
+}
+
+#ui-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none; /* Deja que los clics traspasen al 3D */
+    z-index: 2; /* Texto por encima */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#instrucciones {
+    position: absolute;
+    bottom: 10%;
+    color: rgba(255, 215, 0, 0.7);
+    text-align: center;
+    font-size: 1rem;
+    letter-spacing: 2px;
+    animation: respirar 3s infinite ease-in-out;
+}
+
+@keyframes respirar {
+    0% { opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { opacity: 0.3; }
+}
+
+#mensaje-final {
+    text-align: center;
+    background: rgba(10, 10, 15, 0.7);
+    padding: 50px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px); /* Efecto cristal más borroso */
+    box-shadow: 0 0 50px rgba(255, 215, 0, 0.2);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    transition: opacity 2s ease, transform 2s ease;
+    transform: scale(0.7) translateY(20px);
+}
+
+.oculto {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mostrar {
+    opacity: 1 !important;
+    transform: scale(1) translateY(0) !important;
+    pointer-events: auto !important;
+}
+
+h1 {
+    font-family: 'Dancing Script', cursive;
+    color: #FFD700;
+    font-size: 3.8rem;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.9);
+    margin-bottom: 20px;
+}
+
+p {
+    color: #e2e8f0;
+    font-size: 1.2rem;
+    line-height: 1.9;
+}
